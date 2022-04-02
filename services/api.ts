@@ -1,6 +1,7 @@
 import axios, { AxiosError } from "axios";
 import { parseCookies, setCookie} from 'nookies';
 import { signOut } from "../contexts/AuthContext";
+import { AuthTokenError } from "./errors/AuthTokenError";
 
 let isRefreshing = false;
 let failedRequestQueue = [];
@@ -27,8 +28,6 @@ export function setupAPIClient(ctx = undefined) {
   
         if (!isRefreshing) {
           isRefreshing = true;
-
-          console.log('refresh!!!');
   
           api.post('/refresh', {
             refreshToken,
@@ -44,9 +43,9 @@ export function setupAPIClient(ctx = undefined) {
               maxAge: 60 * 60 * 24 * 30, // 30 days
               path: '/',
             });
-    
+
             api.defaults.headers['Authorization'] = `Bearer ${token}`;
-  
+
             failedRequestQueue.forEach(request => request.onSuccess(token));
             failedRequestQueue = [];
           }).catch(err => {
@@ -60,12 +59,12 @@ export function setupAPIClient(ctx = undefined) {
             isRefreshing = false;
           });
         }
-  
+
         return new Promise((resolve, reject) => {
           failedRequestQueue.push({
             onSuccess: (token: string) => {
               originalConfig.headers['Authorization'] = `Bearer ${token}`;
-  
+
               resolve(api(originalConfig));
             },
             onFailure: (err: AxiosError) => {
@@ -76,6 +75,8 @@ export function setupAPIClient(ctx = undefined) {
       } else {
         if (typeof window !== 'undefined') {
           signOut();
+        } else {
+          return Promise.reject(new AuthTokenError());
         }
       }
     }
